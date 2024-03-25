@@ -1,0 +1,168 @@
+const SUPPORTS_DATATRANSFER = (() => {
+  try {
+    new DataTransfer();
+    return true;
+  } catch (_) {
+    return false;
+  }
+})();
+const SUPPORTS_FILE = typeof File !== "undefined";
+const SUPPORTS_BLOB = typeof Blob !== "undefined";
+const SUPPORTS_FILELIST = typeof FileList !== "undefined";
+const SUPPORTS_ARRAYBUFFER = typeof ArrayBuffer !== "undefined";
+const SUPPORTS_DATAVIEW = typeof DataView !== "undefined";
+const SUPPORTS_IMAGEDATA = typeof ImageData !== "undefined";
+const SUPPORTS_MAP = typeof Map !== "undefined";
+const SUPPORTS_SET = typeof Set !== "undefined";
+const SUPPORTS_DOMMATRIX = typeof DOMMatrix !== "undefined";
+const SUPPORTS_DOMPOINT = typeof DOMPoint !== "undefined";
+const SUPPORTS_DOMQUAD = typeof DOMQuad !== "undefined";
+const SUPPORTS_DOMRECT = typeof DOMRect !== "undefined";
+const SUPPORTS_SHAREDARRAYBUFFER = typeof SharedArrayBuffer !== "undefined";
+const SUPPORTS_BIGINT = typeof BigInt !== "undefined";
+const SUPPORTS_DOMEXCEPTION = typeof DOMException !== "undefined";
+
+// Primitives types except Symbol
+const PRIMITIVE_TYPES = ["undefined", "boolean", "number", "string", "bigint"];
+
+// For cyclic objects
+const map = new Map();
+
+function clone(obj) {
+  if (isPrimitive(obj)) {
+    return obj;
+  }
+
+  if (!map.has(obj)) {
+    cloneObject(obj, newObj => {
+      map.set(obj, newObj);
+    });
+  }
+
+  return map.get(obj);
+}
+
+function cloneObject(obj, set) {
+  if (obj instanceof Date) {
+    set(new Date(obj));
+  } else if (obj instanceof String) {
+    set(new String(obj));
+  } else if (obj instanceof Boolean) {
+    set(new Boolean(obj.valueOf()));
+  } else if (obj instanceof Number) {
+    set(new Number(obj));
+  } else if (obj instanceof RegExp) {
+    set(new RegExp(obj));
+  } else if (SUPPORTS_DOMEXCEPTION && obj instanceof DOMException) {
+    set(new DOMException(obj.message, obj.name));
+  } else if (obj instanceof Error) {
+    const Constructor = globalThis[obj.name] || Error;
+    const newError = new Constructor();
+    set(newError);
+    if (hasOwn(obj, "message")) {
+      const message = Object.getOwnPropertyDescriptor(obj, "message");
+      if ("value" in message) {
+        newError.message = String(obj.message);
+      }
+    }
+    if ("stack" in obj) newError.stack = clone(obj.stack);
+    if (hasOwn(obj, "cause")) newError.cause = clone(obj.cause);
+  } else if (SUPPORTS_BIGINT && obj instanceof BigInt) {
+    set(Object(obj.valueOf()));
+  } else if (SUPPORTS_FILE && obj instanceof File) {
+    set(
+      new File([obj], obj.name, {
+        type: obj.type,
+        lastModified: obj.lastModified
+      })
+    );
+  } else if (SUPPORTS_BLOB && obj instanceof Blob) {
+    set(obj.slice(0, obj.size, obj.type));
+  } else if (
+    SUPPORTS_FILELIST &&
+    SUPPORTS_DATATRANSFER &&
+    obj instanceof FileList
+  ) {
+    const dataTransfer = new DataTransfer();
+    for (const file of obj) {
+      dataTransfer.items.add(clone(file));
+    }
+    set(dataTransfer.files);
+  } else if (SUPPORTS_ARRAYBUFFER && obj instanceof ArrayBuffer) {
+    set(obj.slice(0));
+  } else if (SUPPORTS_SHAREDARRAYBUFFER && obj instanceof SharedArrayBuffer) {
+    set(obj.slice(0));
+  } else if (SUPPORTS_DATAVIEW && obj instanceof DataView) {
+    set(new DataView(obj.buffer, obj.byteOffset, obj.byteLength));
+  } else if (SUPPORTS_ARRAYBUFFER && ArrayBuffer.isView(obj)) {
+    set(obj.slice());
+  } else if (SUPPORTS_IMAGEDATA && obj instanceof ImageData) {
+    set(new ImageData(obj.data.slice(0), obj.width, obj.height));
+  } else if (SUPPORTS_DOMMATRIX && obj instanceof DOMMatrix) {
+    set(obj.scale(1));
+  } else if (SUPPORTS_DOMPOINT && obj instanceof DOMPoint) {
+    set(new DOMPoint(obj.x, obj.y, obj.z, obj.w));
+  } else if (SUPPORTS_DOMQUAD && obj instanceof DOMQuad) {
+    set(new DOMQuad(obj.p1, obj.p2, obj.p3, obj.p4));
+  } else if (SUPPORTS_DOMRECT && obj instanceof DOMRect) {
+    set(DOMRect.fromRect(obj));
+  } else if (Array.isArray(obj)) {
+    const newObj = new Array(obj.length);
+    set(newObj);
+    for (const key in obj) {
+      newObj[key] = clone(obj[key]);
+    }
+  } else if (SUPPORTS_MAP && obj instanceof Map) {
+    const newObj = new Map();
+    set(newObj);
+    Array.from(obj.entries()).forEach(([key, value]) => {
+      newObj.set(clone(key), clone(value));
+    });
+  } else if (SUPPORTS_SET && obj instanceof Set) {
+    const newObj = new Set();
+    set(newObj);
+    Array.from(obj.values()).forEach(item => newObj.add(clone(item)));
+  } else if (isObject(obj)) {
+    const newObj = {};
+    set(newObj);
+    Object.keys(obj).forEach(key => {
+      newObj[key] = clone(obj[key]);
+    });
+  } else {
+    throw new Error(`Unsupported object ${String(obj)}`);
+  }
+}
+
+function hasOwn(obj, name) {
+  return Object.prototype.hasOwnProperty.call(obj, name);
+}
+
+function isObject(obj) {
+  const proto = Object.getPrototypeOf(obj);
+  return (
+    proto === null || Object.prototype.toString.call(obj) === "[object Object]"
+  );
+}
+
+function isPrimitive(item) {
+  return item === null || PRIMITIVE_TYPES.includes(typeof item);
+}
+
+function deepCopy(obj) {
+  try {
+    return clone(obj);
+  } finally {
+    map.clear();
+  }
+}
+
+
+// Usage example
+// 1
+// const old_obj = {
+//   title: "Builder.io Conf",
+//   date: new Date(123),
+//   attendees: ["Steve"]
+// }
+//
+// console.log(deepCopy(obj))

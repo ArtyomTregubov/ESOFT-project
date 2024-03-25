@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <script src="../deepCopy/deepcopy.js"></script>
+    <title>Document</title>
+</head>
+<body>
+<script>
+    // Example usage
+    const obj = {
+      title: "Hello Example Deep Copy",
+      date: new Date(123456),
+      names: ["Artyom"]
+    }
+
+    const copyObj = deepCopy(obj);
+    console.log("Old object", obj);
+    console.log("New copy object", copyObj);
+    console.log("Names is equal", copyObj.names === obj.names);
+
+    const exampleSecond = {
+      map: new Map([[1, 2]]),
+      set: new Set([1, 2, 3, 4, 5]),
+      regex: /foo/,
+      error: new Error('Some Error!')
+    }
+    exampleSecond.circular = exampleSecond
+
+
+    const copyObjSecond = deepCopy(exampleSecond);
+    console.log("\nOld object second", exampleSecond);
+    console.log("New copy object second", copyObjSecond);
+</script>
+</body>
+</html>
